@@ -1,72 +1,132 @@
 # coding=utf-8
 from __future__ import absolute_import
 
-### (Don't forget to remove me)
-# This is a basic skeleton for your plugin's __init__.py. You probably want to adjust the class name of your plugin
-# as well as the plugin mixins it's subclassing from. This is really just a basic skeleton to get you started,
-# defining your plugin as a template plugin, settings and asset plugin. Feel free to add or remove mixins
-# as necessary.
-#
-# Take a look at the documentation on what other plugin mixins are available.
+from time import sleep
+from threading import Thread
 
+import requests
+import yaml
 import octoprint.plugin
 
 class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
                             octoprint.plugin.AssetPlugin,
+                            octoprint.plugin.SimpleApiPlugin,
                             octoprint.plugin.TemplatePlugin):
 
-	##~~ SettingsPlugin mixin
+    ##~~ SettingsPlugin mixin
 
-	def get_settings_defaults(self):
-		return dict(
-			# put your plugin's default settings here
-		)
+    def get_settings_defaults(self):
+        return dict(
+            # put your plugin's default settings here
+        )
 
-	##~~ AssetPlugin mixin
+    ##~~ AssetPlugin mixin
 
-	def get_assets(self):
-		# Define your plugin's asset files to automatically include in the
-		# core UI here.
-		return dict(
-			js=["js/schedule_reboot.js"],
-			css=["css/schedule_reboot.css"],
-			less=["less/schedule_reboot.less"]
-		)
+    def get_assets(self):
+        # Define your plugin's asset files to automatically include in the
+        # core UI here.
+        return dict(
+            #js=["js/schedule_reboot.js"],
+            #css=["css/schedule_reboot.css"],
+            #less=["less/schedule_reboot.less"]
+        )
 
-	##~~ Softwareupdate hook
+    ##~~ Softwareupdate hook
 
-	def get_update_information(self):
-		# Define the configuration for your plugin to use with the Software Update
-		# Plugin here. See https://github.com/foosel/OctoPrint/wiki/Plugin:-Software-Update
-		# for details.
-		return dict(
-			schedule_reboot=dict(
-				displayName="Schedule_reboot Plugin",
-				displayVersion=self._plugin_version,
+    def get_update_information(self):
+        # Define the configuration for your plugin to use with the Software Update
+        # Plugin here. See https://github.com/foosel/OctoPrint/wiki/Plugin:-Software-Update
+        # for details.
+        return dict(
+            schedule_reboot=dict(
+                displayName="Schedule Reboot",
+                displayVersion=self._plugin_version,
 
-				# version check: github repository
-				type="github_release",
-				user="voxel8",
-				repo="OctoPrint-Schedule-Reboot",
-				current=self._plugin_version,
+                # version check: github repository
+                type="github_commit",
+                user="voxel8",
+                repo="OctoPrint-Schedule-Reboot",
+                #current=self._plugin_version,
 
-				# update method: pip
-				pip="https://github.com/voxel8/OctoPrint-Schedule-Reboot/archive/{target_version}.zip"
-			)
-		)
+                # update method: pip
+                pip="https://github.com/voxel8/OctoPrint-Schedule-Reboot/archive/{target_version}.zip"
+            )
+        )
+
+    ##~~ SimpleApiPlugin mixin
+
+    def get_api_commands(self):
+        return dict(
+            schedule_reboot=[],
+            cancel=[],
+        )
+
+    def on_api_command(self, command, data):
+
+        if command == "schedule_reboot":
+            if not self.printer_is_printing():
+                self.initiate_reboot(60)
+            else:
+                self.schedule_reboot(7200)
+
+        elif command == "cancel":
+            self._cancel_reboot = True
+            self.schedule_reboot(7200)
+
+    #########################
+
+    def printer_is_printing(self):
+        if self._printer.is_printing() or self._printer.is_paused():
+            return False
+        return True
+
+    def initiate_reboot(self, secs_from_now):
+        """ Reboot machine in secs_from_now seconds, unless cancelled.
+        """
+        self._cancel_reboot = False
+        self._reboot_thread = Thread(self._reboot_worker, (secs_from_now,))
+        self._reboot_thread.run()
+
+    def schedule_reboot(self, secs_from_now):
+        """ Initiate a reboot in the future,
+        """
+        self._future_reboot_thread = Thread(self._future_reboot, (secs_from_now,))
+        self._future_reboot_thread.run()
+
+    def _reboot_worker(self, secs_from_now):
+        sleep(secs_from_now)
+        if not self._cancel_reboot:
+            self._action('reboot')
+
+    def _future_reboot(self, secs_from_now):
+        sleep(secs_from_now)
+        self.initiate_reboot(60)
+
+    def _action(self, name):
+        requests.post(
+            'localhost:80/api/system',
+            data={'action': name},
+            headers={'X-API-KEY': self._api_key()},
+        )
+
+    def _api_key(self):
+        if not hasattr(self, '_api_key'):
+            with open('/home/pi/.octoprint/config.yaml') as f:
+                self._api_key = yaml.load(f)['api']['key']
+        return self._api_key
 
 
 # If you want your plugin to be registered within OctoPrint under a different name than what you defined in setup.py
 # ("OctoPrint-PluginSkeleton"), you may define that here. Same goes for the other metadata derived from setup.py that
 # can be overwritten via __plugin_xyz__ control properties. See the documentation for that.
-__plugin_name__ = "Schedule_reboot Plugin"
+__plugin_name__ = "Schedule Reboot"
 
 def __plugin_load__():
-	global __plugin_implementation__
-	__plugin_implementation__ = Schedule_rebootPlugin()
+    global __plugin_implementation__
+    __plugin_implementation__ = Schedule_rebootPlugin()
 
-	global __plugin_hooks__
-	__plugin_hooks__ = {
-		"octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
-	}
+    global __plugin_hooks__
+    __plugin_hooks__ = {
+        "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
+    }
 
