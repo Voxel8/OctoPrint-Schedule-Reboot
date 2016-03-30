@@ -84,13 +84,15 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
         """ Reboot machine in secs_from_now seconds, unless cancelled.
         """
         self._cancel_reboot = False
-        self._reboot_thread = Thread(self._reboot_worker, (secs_from_now,))
+        self._reboot_thread = Thread(target=self._reboot_worker,
+                                     args=(secs_from_now,))
         self._reboot_thread.run()
 
     def schedule_reboot(self, secs_from_now):
         """ Initiate a reboot in the future,
         """
-        self._future_reboot_thread = Thread(self._future_reboot, (secs_from_now,))
+        self._future_reboot_thread = Thread(target=self._future_reboot,
+                                            args=(secs_from_now,))
         self._future_reboot_thread.run()
 
     def _reboot_worker(self, secs_from_now):
