@@ -64,12 +64,16 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
     def on_api_command(self, command, data):
 
         if command == "schedule_reboot":
+            self._logger.info("Scheduling reboot...")
             if not self.printer_is_printing():
+                self._logger.info("Printer not in use, rebooting in 60 seconds")
                 self.initiate_reboot(60)
             else:
+                self._logger.info("Printer in use, will try again in 60 minutes")
                 self.schedule_reboot(7200)
 
         elif command == "cancel":
+            self._logger.info("Scheduled reboot cancelled, will try again in 60 minutes")
             self._cancel_reboot = True
             self.schedule_reboot(7200)
 
