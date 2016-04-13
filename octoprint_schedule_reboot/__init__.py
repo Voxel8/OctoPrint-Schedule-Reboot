@@ -90,14 +90,14 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
         self._cancel_reboot = False
         self._reboot_thread = Thread(target=self._reboot_worker,
                                      args=(secs_from_now,))
-        self._reboot_thread.run()
+        self._reboot_thread.start()
 
     def schedule_reboot(self, secs_from_now):
         """ Initiate a reboot in the future,
         """
         self._future_reboot_thread = Thread(target=self._future_reboot,
                                             args=(secs_from_now,))
-        self._future_reboot_thread.run()
+        self._future_reboot_thread.start()
 
     def _reboot_worker(self, secs_from_now):
         sleep(secs_from_now)
