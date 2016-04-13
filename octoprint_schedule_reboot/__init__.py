@@ -97,9 +97,14 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
         self._future_reboot_thread.start()
 
     def _reboot_worker(self, secs_from_now):
-        sleep(secs_from_now)
+        remaining = secs_from_now
+        while (not self._cancel_reboot) and remaining > 0:
+            remaining -= 1
+            sleep(1)
         if not self._cancel_reboot:
             os.system('sudo reboot now')
+        else:
+            self._logger.info("Reboot thread aborted")
 
     def _future_reboot(self, secs_from_now):
         sleep(secs_from_now)
