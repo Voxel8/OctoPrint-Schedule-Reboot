@@ -23,6 +23,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
             schedule_reboot=[],
             cancel=[],
             reboot_now=[],
+            trigger_status=[],
         )
 
     def on_api_command(self, command, data):
@@ -44,10 +45,9 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
             self._logger.info("Reboot called immediately.")
             os.system('sudo reboot')
 
-    def on_api_get(self, request):
-        payload = {'duration': self.remaining}
-        eventManager().fire(Events.EVENT_MESSAGE, payload)
-        return flask.jsonify(remaining=self.remaining)
+        elif command == "trigger_status":
+            payload = {'duration': self.remaining}
+            eventManager().fire(Events.EVENT_MESSAGE, payload)
 
     #########################
 
