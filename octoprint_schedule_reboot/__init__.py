@@ -80,6 +80,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
     #########################
 
     def printer_is_printing(self):
+        self._logger.info('printing: {} paused: {}'.format(self._printer.is_printing(), self._printer.is_paused()))
         if self._printer.is_printing() or self._printer.is_paused():
             return False
         return True
