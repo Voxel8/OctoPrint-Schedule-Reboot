@@ -42,7 +42,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
 
         elif command == "reboot_now":
             self._logger.info("Reboot called immediately.")
-            os.system('sudo reboot -f')
+            os.system('sudo reboot')
 
     def on_api_get(self, request):
         payload = {'duration': self.remaining}
@@ -77,7 +77,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
             self.remaining -= 1
             sleep(1)
         if not self._cancel_reboot:
-            os.system('sudo reboot -f')
+            os.system('sudo reboot')
         else:
             self.remaining = None
             self._logger.info("Reboot thread aborted")
