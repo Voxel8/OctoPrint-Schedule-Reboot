@@ -3,9 +3,8 @@ from __future__ import absolute_import
 
 from time import sleep
 from threading import Thread
+import os
 
-import requests
-import yaml
 import octoprint.plugin
 
 class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
@@ -80,10 +79,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
     #########################
 
     def printer_is_printing(self):
-        self._logger.info('printing: {} paused: {}'.format(self._printer.is_printing(), self._printer.is_paused()))
-        if self._printer.is_printing() or self._printer.is_paused():
-            return False
-        return True
+        return self._printer.is_printing() or self._printer.is_paused()
 
     def initiate_reboot(self, secs_from_now):
         """ Reboot machine in secs_from_now seconds, unless cancelled.
@@ -103,24 +99,11 @@ class Schedule_rebootPlugin(octoprint.plugin.SettingsPlugin,
     def _reboot_worker(self, secs_from_now):
         sleep(secs_from_now)
         if not self._cancel_reboot:
-            self._action('reboot')
+            os.system('sudo reboot now')
 
     def _future_reboot(self, secs_from_now):
         sleep(secs_from_now)
         self.initiate_reboot(60)
-
-    def _action(self, name):
-        requests.post(
-            'localhost:80/api/system',
-            data={'action': name},
-            headers={'X-API-KEY': self._api_key()},
-        )
-
-    def _api_key(self):
-        if not hasattr(self, '_api_key'):
-            with open('/home/pi/.octoprint/config.yaml') as f:
-                self._api_key = yaml.load(f)['api']['key']
-        return self._api_key
 
 
 # If you want your plugin to be registered within OctoPrint under a different name than what you defined in setup.py
