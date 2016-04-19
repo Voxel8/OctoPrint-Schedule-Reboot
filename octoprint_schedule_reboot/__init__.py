@@ -94,7 +94,4 @@ def __plugin_load__():
     __plugin_implementation__ = Schedule_rebootPlugin()
 
     global __plugin_hooks__
-    update_hook = "octoprint.plugin.softwareupdate.check_config"
-    __plugin_hooks__ = {
-        update_hook: __plugin_implementation__.get_update_information
-    }
+    __plugin_hooks__ = {}
