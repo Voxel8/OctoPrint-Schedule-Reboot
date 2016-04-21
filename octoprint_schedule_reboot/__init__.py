@@ -6,6 +6,7 @@ from time import sleep
 from threading import Thread
 import octoprint.plugin
 from octoprint.events import eventManager, Events
+import flask
 
 Events.SCHEDULE_REBOOT_EVENT = "ScheduleReboot"
 
@@ -19,8 +20,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
         return dict(
             schedule_reboot=[],
             cancel=[],
-            reboot_now=[],
-            trigger_status=[],
+            reboot_now=[]
         )
 
     def on_api_command(self, command, data):
@@ -47,9 +47,8 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
             self._logger.info(log_msg)
             os.system('sudo reboot')
 
-        elif command == "trigger_status":
-            payload = {'duration': self.remaining}
-            eventManager().fire(Events.SCHEDULE_REBOOT_EVENT, payload)
+    def on_api_get(self, request):
+        return flask.jsonify(duration=self.remaining)
 
     def printer_is_printing(self):
         return self._printer.is_printing() or self._printer.is_paused()
@@ -57,18 +56,23 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
     def initiate_reboot(self, secs_from_now):
         """ Reboot machine in secs_from_now seconds, unless cancelled.
         """
-        self._cancel_reboot = False
-        self._reboot_thread = Thread(target=self._reboot_worker,
-                                     args=(secs_from_now,))
-        self._reboot_thread.start()
-        payload = {'duration': secs_from_now}
-        eventManager().fire(Events.SCHEDULE_REBOOT_EVENT, payload)
+        if self.remaining is None:  # Only initiate a reboot if there isn't another one running
+            self._cancel_reboot = False
+            self._reboot_thread = Thread(target=self._reboot_worker,
+                                         args=(secs_from_now,))
+            self._reboot_thread.daemon = True
+            self._reboot_thread.start()
+            payload = {'duration': secs_from_now}
+            eventManager().fire(Events.SCHEDULE_REBOOT_EVENT, payload)
+        else:
+            self._logger.info("Warning: Reboot scheduled while one already queued")
 
     def schedule_reboot(self, secs_from_now):
         """ Initiate a reboot in the future,
         """
         self._future_reboot_thread = Thread(target=self._future_reboot,
                                             args=(secs_from_now,))
+        self._future_reboot_thread.daemon = True
         self._future_reboot_thread.start()
 
     def _reboot_worker(self, secs_from_now):
@@ -76,6 +80,9 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
         while (not self._cancel_reboot) and self.remaining > 0:
             self.remaining -= 1
             sleep(1)
+            if not self._cancel_reboot:
+                payload = {'duration': self.remaining}
+                eventManager().fire(Events.SCHEDULE_REBOOT_EVENT, payload)
         if not self._cancel_reboot:
             os.system('sudo reboot')
         else:
