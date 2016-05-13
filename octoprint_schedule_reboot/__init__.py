@@ -34,13 +34,13 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
             else:
                 log_msg = "Printer in use, will try again in 60 minutes"
                 self._logger.info(log_msg)
-                self.schedule_reboot(7200)
+                self.schedule_reboot(3600)
 
         elif command == "cancel":
             log_msg = "Scheduled reboot cancelled, trying again in 60 minutes"
             self._logger.info(log_msg)
             self._cancel_reboot = True
-            self.schedule_reboot(7200)
+            self.schedule_reboot(3600)
 
         elif command == "reboot_now":
             log_msg = "Reboot called immediately"
@@ -56,7 +56,8 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
     def initiate_reboot(self, secs_from_now):
         """ Reboot machine in secs_from_now seconds, unless cancelled.
         """
-        if self.remaining is None:  # Only initiate a reboot if there isn't another one running
+        # Only initiate a reboot if there isn't another one running
+        if self.remaining is None:
             self._cancel_reboot = False
             self._reboot_thread = Thread(target=self._reboot_worker,
                                          args=(secs_from_now,))
@@ -65,7 +66,8 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
             payload = {'duration': secs_from_now}
             eventManager().fire(Events.SCHEDULE_REBOOT_EVENT, payload)
         else:
-            self._logger.info("Warning: Reboot scheduled while one already queued")
+            self._logger.info(
+                "Warning: Reboot scheduled while one already queued")
 
     def schedule_reboot(self, secs_from_now):
         """ Initiate a reboot in the future,
