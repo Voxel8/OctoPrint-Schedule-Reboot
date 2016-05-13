@@ -27,14 +27,7 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
         log_msg = None
         if command == "schedule_reboot":
             self._logger.info("Scheduling reboot...")
-            if not self.printer_is_printing():
-                log_msg = "Printer not in use, rebooting in 60 seconds"
-                self._logger.info(log_msg)
-                self.initiate_reboot(60)
-            else:
-                log_msg = "Printer in use, will try again in 60 minutes"
-                self._logger.info(log_msg)
-                self.schedule_reboot(3600)
+            self.initial_check()
 
         elif command == "cancel":
             log_msg = "Scheduled reboot cancelled, trying again in 60 minutes"
@@ -52,6 +45,16 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
 
     def printer_is_printing(self):
         return self._printer.is_printing() or self._printer.is_paused()
+
+    def initial_check(self):
+        if not self.printer_is_printing():
+            log_msg = "Printer not in use, rebooting in 60 seconds"
+            self._logger.info(log_msg)
+            self.initiate_reboot(60)
+        else:
+            log_msg = "Printer in use, will try again in 60 minutes"
+            self._logger.info(log_msg)
+            self.schedule_reboot(3600)
 
     def initiate_reboot(self, secs_from_now):
         """ Reboot machine in secs_from_now seconds, unless cancelled.
@@ -86,14 +89,21 @@ class Schedule_rebootPlugin(octoprint.plugin.SimpleApiPlugin):
                 payload = {'duration': self.remaining}
                 eventManager().fire(Events.SCHEDULE_REBOOT_EVENT, payload)
         if not self._cancel_reboot:
-            os.system('sudo reboot')
+            if not self.printer_is_printing():
+                self._logger.info("Executing reboot...")
+                os.system('sudo reboot')
+            else:
+                self._logger.info("Printer in use, will try again in 60 "
+                                  "minutes")
+                self.remaining = None
+                self.schedule_reboot(3600)
         else:
             self.remaining = None
             self._logger.info("Reboot thread aborted")
 
     def _future_reboot(self, secs_from_now):
         sleep(secs_from_now)
-        self.initiate_reboot(60)
+        self.initial_check()
 
 __plugin_name__ = "Schedule Reboot"
 
